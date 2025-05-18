@@ -1,0 +1,21 @@
+language: php
+
+php:
+  - 7.3
+
+services:
+  - postgresql
+
+before_script:
+  - cp .env.example .env
+  - composer install --no-interaction
+  - php artisan key:generate
+  - psql -c "CREATE DATABASE travis_ci_laravel;" -U postgres
+  - php artisan migrate
+  - php artisan db:seed --class=UserTableSeeder
+  - php artisan db:seed --class=TermTypesTableSeeder
+  - php artisan db:seed --class=TermsTableSeeder
+
+script:
+  - vendor/bin/phpunit
+

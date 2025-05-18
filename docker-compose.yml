@@ -1,17 +1,17 @@
 
-
 services:
   app:
     build: .
     container_name: laravel_app
     working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
     ports:
       - "8000:80"
     depends_on:
       - postgres
     environment:
       - DB_HOST=postgres
-
 
   postgres:
     image: postgres:13
@@ -26,5 +26,23 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  sonarqube:
+    image: sonarqube:8.9-community
+    container_name: sonarqube
+    ports:
+      - "9000:9000"
+    environment:
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_bundled_plugins:/opt/sonarqube/lib/bundled-plugins
+
 volumes:
   postgres_data:
+  sonarqube_data:
+  sonarqube_logs:
+  sonarqube_extensions:
+  sonarqube_bundled_plugins:
+
