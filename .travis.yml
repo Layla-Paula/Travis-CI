@@ -1,4 +1,4 @@
-dist: bionic  # Corrige o problema do pacote Java
+dist: bionic
 language: php
 
 php:
@@ -31,7 +31,9 @@ install:
   - composer install --no-interaction --prefer-dist --optimize-autoloader
 
 before_script:
-  - psql -c "CREATE DATABASE travis_ci_laravel;" -U postgres
+  - sudo service postgresql restart
+  - sleep 10
+  - psql -U postgres -c "CREATE DATABASE travis_ci_laravel;"
   - cp .env.example .env
   - php artisan key:generate
   - php artisan migrate --force
@@ -44,8 +46,3 @@ after_script:
   - unzip sonar-scanner.zip
   - export PATH="$PWD/sonar-scanner-4.7.0.2747-linux/bin:$PATH"
   - sonar-scanner
-
-cache:
-  directories:
-    - $HOME/.composer/cache
-    - $HOME/.sonar/cache
