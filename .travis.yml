@@ -29,6 +29,8 @@ install:
   - composer install --no-interaction --prefer-dist --optimize-autoloader
 
 before_script:
+  - sudo service postgresql restart
+  - sleep 10
   - psql -c "CREATE DATABASE travis_ci_laravel;" -U postgres
   - cp .env.example .env
   - php artisan key:generate
