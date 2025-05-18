@@ -1,3 +1,4 @@
+dist: bionic  # Corrige o problema do pacote Java
 language: php
 
 php:
