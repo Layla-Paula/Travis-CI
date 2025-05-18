@@ -1,31 +1,16 @@
 language: php
-
 php:
   - 7.3
 
 services:
   - postgresql
 
-before_install:
-  - sudo apt-get update
-  - sudo apt-get install -y unzip git zip libzip-dev libpq-dev
-  - sudo docker --version
-
-install:
-  - composer install --no-interaction --prefer-dist --optimize-autoloader
-
-before_script:
-  - psql -c "CREATE DATABASE travis_ci_laravel;" -U postgres
-  - cp .env.example .env
-  - php artisan key:generate
-  - php artisan migrate
-  - php artisan db:seed --class=UserTableSeeder
-  - php artisan db:seed --class=TermTypesTableSeeder
-  - php artisan db:seed --class=TermsTableSeeder
-
-script:
-  - php artisan test || true
-  - sonar-scanner -Dsonar.projectKey=travisTeste -Dsonar.sources=. -Dsonar.host.url=http://localhost:9000 -Dsonar.login=$SONAR_TOKEN
+addons:
+  postgresql: "13"
+  sonarcloud:
+    organization: "layla-paula"
+    token:
+      secure: "${SONAR_TOKEN}"
 
 env:
   global:
@@ -36,9 +21,23 @@ env:
     - DB_USERNAME=postgres
     - DB_PASSWORD=
 
-addons:
-  postgresql: "13"
+before_install:
+  - sudo apt-get update
+  - sudo apt-get install -y unzip git zip libzip-dev libpq-dev
 
-cache:
-  directories:
-    - $HOME/.composer/cache
+install:
+  - composer install --no-interaction --prefer-dist --optimize-autoloader
+
+before_script:
+  - psql -c "CREATE DATABASE travis_ci_laravel;" -U postgres
+  - cp .env.example .env
+  - php artisan key:generate
+  - php artisan migrate --force
+
+script:
+  - ./vendor/bin/phpunit --coverage-clover=storage/coverage.xml
+  - |
+    curl -sSLo sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.7.0.2747-linux.zip
+    unzip sonar-scanner.zip
+    export PATH="$PWD/sonar-scanner-4.7.0.2747-linux/bin:$PATH"
+    sonar-scanner
