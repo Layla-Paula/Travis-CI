@@ -2,7 +2,6 @@
 
 namespace SegWeb\Http\Controllers;
 
-
 use Illuminate\Http\Request;
 use SegWeb\File;
 use SegWeb\Http\Controllers\Tools;
@@ -10,7 +9,8 @@ use SegWeb\Http\Controllers\TermController;
 use SegWeb\Http\Controllers\FileResultsController;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
-use Auth;
+use Illuminate\Contracts\Filesystem\FileNotFoundException;
+use Illuminate\Support\Facades\Auth;
 use SegWeb\FileResults;
 
 class FileController extends Controller {
@@ -28,27 +28,22 @@ class FileController extends Controller {
             'text' => 'Successfully Submitted!',
             'type' => 'success'
         ];
-        if($request->file('file')->getClientMimeType() == 'application/x-php') {
-            if(Auth::check()) {
-                $user = Auth::user();
-                $user_id = $user->id;
-            } else {
-                $user_id = 0;
-            }
-            
+        if ($request->file('file')->getClientMimeType() == 'application/x-php') {
+            $user_id = Auth::check() ? Auth::user()->id : 0;
+
             $file = new File();
             $file->user_id = $user_id;
             $file->file_path = $request->file('file')->store('uploads', 'local');
             $file->original_file_name = $request->file('file')->getClientOriginalName();
             $file->type = "File";
             $file->save();
-            
+
             $file_content = $this->analiseFile($file->id);
             $file_results_controller = new FileResultsController();
             return view('index', [
-                'file' => $file, 
-                'file_results' => $file_results_controller->getSingleByFileId($file->id), 
-                'file_content' => $file_content, 
+                'file' => $file,
+                'file_results' => $file_results_controller->getSingleByFileId($file->id),
+                'file_content' => $file_content,
                 'msg' => $msg
             ]);
         } else {
@@ -68,15 +63,16 @@ class FileController extends Controller {
             $term = new TermController();
             $terms = $term->getTerm();
 
-            $file_location = Storage::disk('local')->getDriver()->getAdapter()->applyPathPrefix($file->file_path);
-            $fn = fopen("$file_location","r");
+            $file_location = Storage::path($file->file_path);
+            $fn = fopen($file_location, "r");
             $line_number = 1;
-            $file_content = NULL;
-            while(!feof($fn)) {
+            $file_content = [];
+
+            while (!feof($fn)) {
                 $file_line = fgets($fn);
 
-                foreach($terms as $term) {
-                    if(Tools::contains($term->term, $file_line)) {
+                foreach ($terms as $term) {
+                    if (Tools::contains($term->term, $file_line)) {
                         $file_results = new FileResults();
                         $file_results->file_id = $id_file;
                         $file_results->line_number = $line_number;
@@ -84,12 +80,15 @@ class FileController extends Controller {
                         $file_results->save();
                     }
                 }
+
                 $file_content[$line_number] = $file_line;
                 $line_number++;
             }
+
             fclose($fn);
             return $file_content;
-        } catch (Illuminate\Contracts\Filesystem\FileNotFoundException $exception) {
+
+        } catch (FileNotFoundException $exception) {
             return "File Not Found!";
         }
     }
@@ -106,20 +105,23 @@ class FileController extends Controller {
 
     public static function getFileContentArray($id_file) {
         $file = DB::table('files')->find($id_file);
-        $full_file_path = base_path('storage/app/'.$file->file_path);
-        if(file_exists($full_file_path)) {
+        $full_file_path = base_path('storage/app/' . $file->file_path);
+
+        if (file_exists($full_file_path)) {
             $fn = fopen($full_file_path, 'r');
             $line_number = 1;
-            $file_content = NULL;
-            while(!feof($fn)) {
+            $file_content = [];
+
+            while (!feof($fn)) {
                 $file_line = fgets($fn);
                 $file_content[$line_number] = $file_line;
                 $line_number++;
             }
+
             fclose($fn);
             return $file_content;
         } else {
-            return NULL;
+            return null;
         }
     }
 
