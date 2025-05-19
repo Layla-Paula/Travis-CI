@@ -1,5 +1,9 @@
 <?php
 
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
+
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -40,3 +44,6 @@ Route::get('/terms/{id}', 'TermController@edit');
 Route::post('/terms', 'TermController@store');
 
 Route::get('/repo/api', 'GithubFilesController@downloadGithub');
+Auth::routes();
+
+Route::get('/home', 'HomeController@index')->name('home');
