@@ -38,6 +38,7 @@ class GithubFilesController extends Controller
             $user_id = Auth::check() ? Auth::id() : 0;
 
             $github_link = rtrim($request->github_link, '/');
+            $branch = $request->branch;
             $branch = preg_replace('/[^a-zA-Z0-9_\-]/', '', $request->branch);
             $url = $github_link . '/archive/' . $branch . '.zip';
 
