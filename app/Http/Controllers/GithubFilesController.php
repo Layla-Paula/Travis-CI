@@ -36,7 +36,11 @@ class GithubFilesController extends Controller
             $user_id = Auth::check() ? Auth::id() : 0;
 
             $github_link = rtrim($request->github_link, '/');
-            $url = $github_link . '/archive/' . $request->branch . '.zip';
+
+
+            $branch = preg_replace('/[^a-zA-Z0-9_\-]/', '', $request->branch);
+
+            $url = $github_link . '/archive/' . $branch . '.zip';
             $folder = 'github_uploads/';
             $now = date('ymdhis');
             $name = $folder . $now . '_' . basename($url);
@@ -47,14 +51,14 @@ class GithubFilesController extends Controller
                 return $this->respond($request, 'An error occurred during repository download', 'error');
             }
 
-            $file_location = base_path(self::STORAGE_PATH . $folder . $now . '_' . $request->branch);
+            $file_location = base_path(self::STORAGE_PATH . $folder . $now . '_' . $branch);
 
             Zipper::make(base_path(self::STORAGE_PATH . $name))->extractTo($file_location);
             unlink(base_path(self::STORAGE_PATH . $name));
 
             $file = new File();
             $file->user_id = $user_id;
-            $file->file_path = $folder . $now . '_' . $request->branch;
+            $file->file_path = $folder . $now . '_' . $branch;
             $project_name = explode('/', $github_link);
             $file->original_file_name = end($project_name);
             $file->type = 'Github Repository';
