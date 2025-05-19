@@ -3,6 +3,7 @@
 namespace SegWeb\Http\Controllers;
 
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -15,6 +16,7 @@ use SegWeb\Http\Controllers\FileResultsController;
 use SegWeb\Http\Controllers\TermController;
 use Exception;
 
+
 class GithubFilesController extends Controller
 {
     private $github_files_ids = null;
@@ -26,67 +28,74 @@ class GithubFilesController extends Controller
         return view('github');
     }
 
-    public function downloadGithub(Request $request)
-    {
-        if (!Tools::contains('github', $request->github_link)) {
-            return $this->respond($request, 'An invalid repository link has been submitted!', 'error');
-        }
-
-        $msg = ['text' => 'Repository has been successfully downloaded!', 'type' => 'success'];
-
-        try {
-            $user_id = Auth::check() ? Auth::id() : 0;
-
-            $github_link = rtrim($request->github_link, '/');
-            $branch = $request->branch;
-            $branch = preg_replace('/[^a-zA-Z0-9_\-]/', '', $request->branch);
-            $url = $github_link . '/archive/' . $branch . '.zip';
-
-            $uniqueZipName = 'repo_' . Str::uuid() . '.zip';
-            $name = self::GITHUB_FOLDER . $uniqueZipName;
-
-            $put = Storage::put($name, file_get_contents($url));
-
-            if (!$put) {
-                return $this->respond($request, 'An error occurred during repository download', 'error');
-            }
-
-            $projectFolderName = 'project_' . Str::uuid();
-            $file_location = base_path(self::STORAGE_PATH . self::GITHUB_FOLDER . $projectFolderName);
-
-            Zipper::make(base_path(self::STORAGE_PATH . $name))->extractTo($file_location);
-            unlink(base_path(self::STORAGE_PATH . $name));
-
-            $file = new File();
-            $file->user_id = $user_id;
-            $file->file_path = self::GITHUB_FOLDER . $projectFolderName;
-            $project_name = explode('/', $github_link);
-            $file->original_file_name = end($project_name);
-            $file->type = 'Github Repository';
-            $file->save();
-
-            $this->analiseGithubFiles($file_location, $file->id);
-
-            $file_contents = null;
-            if (!empty($this->github_files_ids)) {
-                $file_results_controller = new FileResultsController();
-                foreach ($this->github_files_ids as $value) {
-                    $file_contents[$value]['content'] = FileController::getFileContentArray($value);
-                    $file_contents[$value]['results'] = $file_results_controller->getSingleByFileId($value);
-                    $file_contents[$value]['file'] = FileController::getFileById($value);
-                }
-            }
-
-            if ($request->path() === 'github') {
-                return view('github', compact('file', 'file_contents', 'msg'));
-            }
-
-            return response()->json($this->getResultArray($file, $file_contents));
-
-        } catch (Exception $e) {
-            return $this->respond($request, 'An error occurred', 'error');
-        }
+public function downloadGithub(Request $request)
+{
+    if (!Tools::contains('github.com', $request->github_link)) {
+        return $this->respond($request, 'An invalid repository link has been submitted!', 'error');
     }
+
+    try {
+        $user_id = Auth::check() ? Auth::id() : 0;
+
+        $github_link = rtrim($request->github_link, '/');
+        $branch = preg_replace('/[^a-zA-Z0-9_\-]/', '', $request->branch);
+
+        // Validação extra de URL
+        if (!filter_var($github_link, FILTER_VALIDATE_URL)) {
+            return $this->respond($request, 'Invalid GitHub URL format.', 'error');
+        }
+
+        $url = "{$github_link}/archive/{$branch}.zip";
+
+        // Usa HTTP Client com timeout e validação
+        $response = Http::timeout(10)->get($url);
+
+        if (!$response->ok() || !$response->header('Content-Type') || !str_contains($response->header('Content-Type'), 'application/zip')) {
+            return $this->respond($request, 'Failed to download valid zip file.', 'error');
+        }
+
+        $uniqueZipName = 'repo_' . Str::uuid() . '.zip';
+        $name = self::GITHUB_FOLDER . $uniqueZipName;
+        Storage::put($name, $response->body());
+
+        $projectFolderName = 'project_' . Str::uuid();
+        $file_location = base_path(self::STORAGE_PATH . self::GITHUB_FOLDER . $projectFolderName);
+
+        Zipper::make(base_path(self::STORAGE_PATH . $name))->extractTo($file_location);
+        unlink(base_path(self::STORAGE_PATH . $name));
+
+        // Salva no banco
+        $file = new File();
+        $file->user_id = $user_id;
+        $file->file_path = self::GITHUB_FOLDER . $projectFolderName;
+        $project_name = explode('/', $github_link);
+        $file->original_file_name = end($project_name);
+        $file->type = 'Github Repository';
+        $file->save();
+
+        $this->analiseGithubFiles($file_location, $file->id);
+
+        $file_contents = null;
+        if (!empty($this->github_files_ids)) {
+            $file_results_controller = new FileResultsController();
+            foreach ($this->github_files_ids as $value) {
+                $file_contents[$value]['content'] = FileController::getFileContentArray($value);
+                $file_contents[$value]['results'] = $file_results_controller->getSingleByFileId($value);
+                $file_contents[$value]['file'] = FileController::getFileById($value);
+            }
+        }
+
+        if ($request->path() === 'github') {
+            return view('github', compact('file', 'file_contents'));
+        }
+
+        return response()->json($this->getResultArray($file, $file_contents));
+
+    } catch (\Exception $e) {
+        return $this->respond($request, 'An error occurred', 'error');
+    }
+}
+
 
     private function respond(Request $request, string $text, string $type)
     {
