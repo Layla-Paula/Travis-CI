@@ -103,14 +103,21 @@ p {
 
 abbr[title],
 abbr[data-original-title] {
-  text-decoration: underline;
   -webkit-text-decoration: underline dotted;
-          text-decoration: underline dotted;
+  text-decoration: underline dotted;
   cursor: help;
   border-bottom: 0;
   -webkit-text-decoration-skip-ink: none;
-          text-decoration-skip-ink: none;
 }
+
+/* abbr[title],
+abbr[data-original-title] {
+  text-decoration: underline dotted;
+  text-decoration-skip-ink: none;
+  cursor: help;
+  border-bottom: 0;
+} */
+
 
 address {
   margin-bottom: 1rem;
@@ -10811,7 +10818,7 @@ a.text-dark:focus {
 }
 
 .text-hide {
-  font: 0/0 a;
+  font: 0/0 sans-serif;
   color: transparent;
   text-shadow: none;
   background-color: transparent;
